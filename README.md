@@ -1,113 +1,32 @@
 
 # Deep Learning & Art: Neural Style Transfer
 
-In this assignment, you will learn about Neural Style Transfer. This algorithm was created by [Gatys et al. (2015).](https://arxiv.org/abs/1508.06576)
+- Neural Style Transfer is an algorithm that given a content image C and a style image S can generate an artistic image
+- It uses representations (hidden layer activations) based on a pretrained ConvNet. 
+- The content cost function is computed using one hidden layer's activations.
+- The style cost function for one layer is computed using the Gram matrix of that layer's activations. The overall style cost function is obtained using several hidden layers.
+- Optimizing the total cost function results in synthesizing new images. 
 
-**In this assignment, you will:**
+This algorithm was created by [Gatys et al. (2015).](https://arxiv.org/abs/1508.06576)
+**Here I:**
 - Implement the neural style transfer algorithm 
 - Generate novel artistic images using your algorithm 
 
-Most of the algorithms you've studied optimize a cost function to get a set of parameter values. In Neural Style Transfer, you'll optimize a cost function to get pixel values!
-
-## <font color='darkblue'>Updates</font>
-
-#### If you were working on the notebook before this update...
-* The current notebook is version "3a".
-* You can find your original work saved in the notebook with the previous version name ("v2") 
-* To view the file directory, go to the menu "File->Open", and this will open a new tab that shows the file directory.
-
-#### List of updates
-* Use `pprint.PrettyPrinter` to format printing of the vgg model.
-* computing content cost: clarified and reformatted instructions, fixed broken links, added additional hints for unrolling.
-* style matrix: clarify two uses of variable "G" by using different notation for gram matrix.
-* style cost: use distinct notation for gram matrix, added additional hints.
-* Grammar and wording updates for clarity.
-* `model_nn`: added hints.
-
-
-```python
-import os
-import sys
-import scipy.io
-import scipy.misc
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import imshow
-from PIL import Image
-from nst_utils import *
-import numpy as np
-import tensorflow as tf
-import pprint
-%matplotlib inline
-```
-
-## 1 - Problem Statement
 
 Neural Style Transfer (NST) is one of the most fun techniques in deep learning. As seen below, it merges two images, namely: a **"content" image (C) and a "style" image (S), to create a "generated" image (G**). 
 
 The generated image G combines the "content" of the image C with the "style" of image S. 
 
-In this example, you are going to generate an image of the Louvre museum in Paris (content image C), mixed with a painting by Claude Monet, a leader of the impressionist movement (style image S).
+In this example, I am going to generate an image of the Louvre museum in Paris (content image C), mixed with a painting by Claude Monet, a leader of the impressionist movement (style image S).
 <img src="images/louvre_generated.png" style="width:750px;height:200px;">
-
-Let's see how you can do this. 
-
-## 2 - Transfer Learning
+ 
 
 Neural Style Transfer (NST) uses a previously trained convolutional network, and builds on top of that. The idea of using a network trained on a different task and applying it to a new task is called transfer learning. 
 
 Following the [original NST paper](https://arxiv.org/abs/1508.06576), we will use the VGG network. Specifically, we'll use VGG-19, a 19-layer version of the VGG network. This model has already been trained on the very large ImageNet database, and thus has learned to recognize a variety of low level features (at the shallower layers) and high level features (at the deeper layers). 
 
-Run the following code to load parameters from the VGG model. This may take a few seconds. 
+To run an image through this network, you just have to feed the image to the model. 
 
-
-```python
-pp = pprint.PrettyPrinter(indent=4)
-model = load_vgg_model("pretrained-model/imagenet-vgg-verydeep-19.mat")
-pp.pprint(model)
-```
-
-    {   'avgpool1': <tf.Tensor 'AvgPool:0' shape=(1, 150, 200, 64) dtype=float32>,
-        'avgpool2': <tf.Tensor 'AvgPool_1:0' shape=(1, 75, 100, 128) dtype=float32>,
-        'avgpool3': <tf.Tensor 'AvgPool_2:0' shape=(1, 38, 50, 256) dtype=float32>,
-        'avgpool4': <tf.Tensor 'AvgPool_3:0' shape=(1, 19, 25, 512) dtype=float32>,
-        'avgpool5': <tf.Tensor 'AvgPool_4:0' shape=(1, 10, 13, 512) dtype=float32>,
-        'conv1_1': <tf.Tensor 'Relu:0' shape=(1, 300, 400, 64) dtype=float32>,
-        'conv1_2': <tf.Tensor 'Relu_1:0' shape=(1, 300, 400, 64) dtype=float32>,
-        'conv2_1': <tf.Tensor 'Relu_2:0' shape=(1, 150, 200, 128) dtype=float32>,
-        'conv2_2': <tf.Tensor 'Relu_3:0' shape=(1, 150, 200, 128) dtype=float32>,
-        'conv3_1': <tf.Tensor 'Relu_4:0' shape=(1, 75, 100, 256) dtype=float32>,
-        'conv3_2': <tf.Tensor 'Relu_5:0' shape=(1, 75, 100, 256) dtype=float32>,
-        'conv3_3': <tf.Tensor 'Relu_6:0' shape=(1, 75, 100, 256) dtype=float32>,
-        'conv3_4': <tf.Tensor 'Relu_7:0' shape=(1, 75, 100, 256) dtype=float32>,
-        'conv4_1': <tf.Tensor 'Relu_8:0' shape=(1, 38, 50, 512) dtype=float32>,
-        'conv4_2': <tf.Tensor 'Relu_9:0' shape=(1, 38, 50, 512) dtype=float32>,
-        'conv4_3': <tf.Tensor 'Relu_10:0' shape=(1, 38, 50, 512) dtype=float32>,
-        'conv4_4': <tf.Tensor 'Relu_11:0' shape=(1, 38, 50, 512) dtype=float32>,
-        'conv5_1': <tf.Tensor 'Relu_12:0' shape=(1, 19, 25, 512) dtype=float32>,
-        'conv5_2': <tf.Tensor 'Relu_13:0' shape=(1, 19, 25, 512) dtype=float32>,
-        'conv5_3': <tf.Tensor 'Relu_14:0' shape=(1, 19, 25, 512) dtype=float32>,
-        'conv5_4': <tf.Tensor 'Relu_15:0' shape=(1, 19, 25, 512) dtype=float32>,
-        'input': <tf.Variable 'Variable:0' shape=(1, 300, 400, 3) dtype=float32_ref>}
-
-
-* The model is stored in a python dictionary.  
-* The python dictionary contains key-value pairs for each layer.  
-* The 'key' is the variable name and the 'value' is a tensor for that layer. 
-
-#### Assign input image to the model's input layer
-To run an image through this network, you just have to feed the image to the model. In TensorFlow, you can do so using the [tf.assign](https://www.tensorflow.org/api_docs/python/tf/assign) function. In particular, you will use the assign function like this:  
-```python
-model["input"].assign(image)
-```
-This assigns the image as an input to the model. 
-
-#### Activate a layer
-After this, if you want to access the activations of a particular layer, say layer `4_2` when the network is run on this image, you would run a TensorFlow session on the correct tensor `conv4_2`, as follows:  
-```python
-sess.run(model["conv4_2"])
-```
-
-## 3 - Neural Style Transfer (NST)
 
 We will build the Neural Style Transfer (NST) algorithm in three steps:
 
@@ -115,7 +34,6 @@ We will build the Neural Style Transfer (NST) algorithm in three steps:
 - Build the style cost function $J_{style}(S,G)$
 - Put it together to get $J(G) = \alpha J_{content}(C,G) + \beta J_{style}(S,G)$. 
 
-### 3.1 - Computing the content cost
 
 In our running example, the content image C will be the picture of the Louvre Museum in Paris. Run the code below to see a picture of the Louvre.
 
@@ -131,26 +49,16 @@ imshow(content_image);
 
 The content image (C) shows the Louvre museum's pyramid surrounded by old Paris buildings, against a sunny sky with a few clouds.
 
-** 3.1.1 - Make generated image G match the content of image C**
 
-#### Shallower versus deeper layers
 * The shallower layers of a ConvNet tend to detect lower-level features such as edges and simple textures.
 * The deeper layers tend to detect higher-level features such as more complex textures as well as object classes. 
 
-#### Choose a "middle" activation layer $a^{[l]}$
 We would like the "generated" image G to have similar content as the input image C. Suppose you have chosen some layer's activations to represent the content of an image. 
 * In practice, you'll get the most visually pleasing results if you choose a layer in the **middle** of the network--neither too shallow nor too deep. 
-* (After you have finished this exercise, feel free to come back and experiment with using different layers, to see how the results vary.)
 
-#### Forward propagate image "C"
+
 * Set the image C as the input to the pretrained VGG network, and run forward propagation.  
-* Let $a^{(C)}$ be the hidden layer activations in the layer you had chosen. (In lecture, we had written this as $a^{[l](C)}$, but here we'll drop the superscript $[l]$ to simplify the notation.) This will be an $n_H \times n_W \times n_C$ tensor.
 
-#### Forward propagate image "G"
-* Repeat this process with the image G: Set G as the input, and run forward progation. 
-* Let $a^{(G)}$ be the corresponding hidden layer activation. 
-
-#### Content Cost Function $J_{content}(C,G)$
 We will define the content cost function as:
 
 $$J_{content}(C,G) =  \frac{1}{4 \times n_H \times n_W \times n_C}\sum _{ \text{all entries}} (a^{(C)} - a^{(G)})^2\tag{1} $$
@@ -162,7 +70,6 @@ $$J_{content}(C,G) =  \frac{1}{4 \times n_H \times n_W \times n_C}\sum _{ \text{
 
 <img src="images/NST_LOSS.png" style="width:800px;height:400px;">
 
-**Exercise:** Compute the "content cost" using TensorFlow. 
 
 **Instructions**: The 3 steps to implement this function are:
 1. Retrieve dimensions from `a_G`: 
@@ -230,26 +137,6 @@ with tf.Session() as test:
     J_content = 6.76559
 
 
-**Expected Output**:
-
-<table>
-    <tr>
-        <td>
-            **J_content**
-        </td>
-        <td>
-           6.76559
-        </td>
-    </tr>
-
-</table>
-
-#### What you should remember
-- The content cost takes a hidden layer activation of the neural network, and measures how different $a^{(C)}$ and $a^{(G)}$ are. 
-- When we minimize the content cost later, this will help make sure $G$ has similar content as $C$.
-
-### 3.2 - Computing the style cost
-
 For our running example, we will use the following style image: 
 
 
@@ -266,21 +153,12 @@ This was painted in the style of *[impressionism](https://en.wikipedia.org/wiki/
 
 Lets see how you can now define a "style" cost function $J_{style}(S,G)$. 
 
-### 3.2.1 - Style matrix
 
-#### Gram matrix
 * The style matrix is also called a "Gram matrix." 
 * In linear algebra, the Gram matrix G of a set of vectors $(v_{1},\dots ,v_{n})$ is the matrix of dot products, whose entries are ${\displaystyle G_{ij} = v_{i}^T v_{j} = np.dot(v_{i}, v_{j})  }$. 
 * In other words, $G_{ij}$ compares how similar $v_i$ is to $v_j$: If they are highly similar, you would expect them to have a large dot product, and thus for $G_{ij}$ to be large. 
 
-#### Two meanings of the variable $G$
-* Note that there is an unfortunate collision in the variable names used here. We are following common terminology used in the literature. 
-* $G$ is used to denote the Style matrix (or Gram matrix) 
-* $G$ also denotes the generated image. 
-* For this assignment, we will use $G_{gram}$ to refer to the Gram matrix, and $G$ to denote the generated image.
 
-
-#### Compute $G_{gram}$
 In Neural Style Transfer (NST), you can compute the Style matrix by multiplying the "unrolled" filter matrix with its transpose:
 
 <img src="images/NST_GM.png" style="width:900px;height:300px;">
@@ -297,12 +175,6 @@ The result is a matrix of dimension $(n_C,n_C)$ where $n_C$ is the number of fil
 
 
 By capturing the prevalence of different types of features ($G_{(gram)ii}$), as well as how much different features occur together ($G_{(gram)ij}$), the Style matrix $G_{gram}$ measures the style of an image. 
-
-**Exercise**:
-* Using TensorFlow, implement a function that computes the Gram matrix of a matrix A. 
-* The formula is: The gram matrix of A is $G_A = AA^T$. 
-* You may use these functions: [matmul](https://www.tensorflow.org/api_docs/python/tf/matmul) and [transpose](https://www.tensorflow.org/api_docs/python/tf/transpose).
-
 
 ```python
 # GRADED FUNCTION: gram_matrix
@@ -341,22 +213,6 @@ with tf.Session() as test:
      [ -2.09668207  19.56387138  20.6864624 ]]
 
 
-**Expected Output**:
-
-<table>
-    <tr>
-        <td>
-            **GA**
-        </td>
-        <td>
-           [[  6.42230511  -4.42912197  -2.09668207] <br>
- [ -4.42912197  19.46583748  19.56387138] <br>
- [ -2.09668207  19.56387138  20.6864624 ]]
-        </td>
-    </tr>
-
-</table>
-
 ### 3.2.2 - Style cost
 
 Your goal will be to minimize the distance between the Gram matrix of the "style" image S and the gram matrix of the "generated" image G. 
@@ -369,118 +225,6 @@ $$J_{style}^{[l]}(S,G) = \frac{1}{4 \times {n_C}^2 \times (n_H \times n_W)^2} \s
 * $G_{gram}^{(G)}$ Gram matrix of the "generated" image.
 * Remember, this cost is computed using the hidden layer activations for a particular hidden layer in the network $a^{[l]}$
 
-
-**Exercise**: Compute the style cost for a single layer. 
-
-**Instructions**: The 3 steps to implement this function are:
-1. Retrieve dimensions from the hidden layer activations a_G: 
-    - To retrieve dimensions from a tensor X, use: `X.get_shape().as_list()`
-2. Unroll the hidden layer activations a_S and a_G into 2D matrices, as explained in the picture above (see the images in the sections "computing the content cost" and "style matrix").
-    - You may use [tf.transpose](https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/transpose) and [tf.reshape](https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/reshape).
-3. Compute the Style matrix of the images S and G. (Use the function you had previously written.) 
-4. Compute the Style cost:
-    - You may find [tf.reduce_sum](https://www.tensorflow.org/api_docs/python/tf/reduce_sum), [tf.square](https://www.tensorflow.org/api_docs/python/tf/square) and [tf.subtract](https://www.tensorflow.org/api_docs/python/tf/subtract) useful.
-    
-    
-#### Additional Hints
-* Since the activation dimensions are $(m, n_H, n_W, n_C)$ whereas the desired unrolled matrix shape is $(n_C, n_H*n_W)$, the order of the filter dimension $n_C$ is changed.  So `tf.transpose` can be used to change the order of the filter dimension.
-* for the product $\mathbf{G}_{gram} = \mathbf{A}_{} \mathbf{A}_{}^T$, you will also need to specify the `perm` parameter for the `tf.transpose` function.
-
-
-```python
-# GRADED FUNCTION: compute_layer_style_cost
-
-def compute_layer_style_cost(a_S, a_G):
-    """
-    Arguments:
-    a_S -- tensor of dimension (1, n_H, n_W, n_C), hidden layer activations representing style of the image S 
-    a_G -- tensor of dimension (1, n_H, n_W, n_C), hidden layer activations representing style of the image G
-    
-    Returns: 
-    J_style_layer -- tensor representing a scalar value, style cost defined above by equation (2)
-    """
-    
-    ### START CODE HERE ###
-    # Retrieve dimensions from a_G (≈1 line)
-    m, n_H, n_W, n_C = a_G.get_shape().as_list()
-    
-    # Reshape the images to have them of shape (n_C, n_H*n_W) (≈2 lines)
-    a_S = tf.transpose(tf.reshape(a_S, shape=[-1, n_C]))
-    a_G = tf.transpose(tf.reshape(a_G, shape=[-1, n_C]))
-
-    # Computing gram_matrices for both images S and G (≈2 lines)
-    GS = gram_matrix(a_S)
-    GG = gram_matrix(a_G)
-
-    # Computing the loss (≈1 line)
-    J_style_layer = 1 / (2*n_C*n_H*n_W)**2 * tf.reduce_sum((GS-GG)**2)
-    
-    ### END CODE HERE ###
-    
-    return J_style_layer
-
-```
-
-
-```python
-tf.reset_default_graph()
-
-with tf.Session() as test:
-    tf.set_random_seed(1)
-    a_S = tf.random_normal([1, 4, 4, 3], mean=1, stddev=4)
-    a_G = tf.random_normal([1, 4, 4, 3], mean=1, stddev=4)
-    J_style_layer = compute_layer_style_cost(a_S, a_G)
-    
-    print("J_style_layer = " + str(J_style_layer.eval()))
-```
-
-    J_style_layer = 9.19028
-
-
-**Expected Output**:
-
-<table>
-    <tr>
-        <td>
-            **J_style_layer**
-        </td>
-        <td>
-           9.19028
-        </td>
-    </tr>
-
-</table>
-
-### 3.2.3 Style Weights
-
-* So far you have captured the style from only one layer. 
-* We'll get better results if we "merge" style costs from several different layers. 
-* Each layer will be given weights ($\lambda^{[l]}$) that reflect how much each layer will contribute to the style.
-* After completing this exercise, feel free to come back and experiment with different weights to see how it changes the generated image $G$.
-* By default, we'll give each layer equal weight, and the weights add up to 1.  ($\sum_{l}^L\lambda^{[l]} = 1$)
-
-
-```python
-STYLE_LAYERS = [
-    ('conv1_1', 0.2),
-    ('conv2_1', 0.2),
-    ('conv3_1', 0.2),
-    ('conv4_1', 0.2),
-    ('conv5_1', 0.2)]
-```
-
-You can combine the style costs for different layers as follows:
-
-$$J_{style}(S,G) = \sum_{l} \lambda^{[l]} J^{[l]}_{style}(S,G)$$
-
-where the values for $\lambda^{[l]}$ are given in `STYLE_LAYERS`. 
-
-
-### Exercise: compute style cost
-
-* We've implemented a compute_style_cost(...) function. 
-* It calls your `compute_layer_style_cost(...)` several times, and weights their results using the values in `STYLE_LAYERS`. 
-* Please read over it to make sure you understand what it's doing. 
 
 #### Description of `compute_style_cost`
 For each layer:
@@ -534,15 +278,7 @@ def compute_style_cost(model, STYLE_LAYERS):
     return J_style
 ```
 
-**Note**: In the inner-loop of the for-loop above, `a_G` is a tensor and hasn't been evaluated yet. It will be evaluated and updated at each iteration when we run the TensorFlow graph in model_nn() below.
 
-<!-- 
-How do you choose the coefficients for each layer? The deeper layers capture higher-level concepts, and the features in the deeper layers are less localized in the image relative to each other. So if you want the generated image to softly follow the style image, try choosing larger weights for deeper layers and smaller weights for the first layers. In contrast, if you want the generated image to strongly follow the style image, try choosing smaller weights for deeper layers and larger weights for the first layers
-!-->
-
-
-
-## What you should remember
 - The style of an image can be represented using the Gram matrix of a hidden layer's activations. 
 - We get even better results by combining this representation from multiple different layers. 
 - This is in contrast to the content representation, where usually using just a single hidden layer is sufficient.
@@ -550,13 +286,13 @@ How do you choose the coefficients for each layer? The deeper layers capture hig
 
 
 
-### 3.3 - Defining the total cost to optimize
+### - Defining the total cost to optimize
 
 Finally, let's create a cost function that minimizes both the style and the content cost. The formula is: 
 
 $$J(G) = \alpha J_{content}(C,G) + \beta J_{style}(S,G)$$
 
-**Exercise**: Implement the total cost function which includes both the content cost and the style cost. 
+
 
 
 ```python
@@ -598,26 +334,6 @@ with tf.Session() as test:
     J = 35.34667875478276
 
 
-**Expected Output**:
-
-<table>
-    <tr>
-        <td>
-            **J**
-        </td>
-        <td>
-           35.34667875478276
-        </td>
-    </tr>
-
-</table>
-
-
-## What you should remember
-- The total cost is a linear combination of the content cost $J_{content}(C,G)$ and the style cost $J_{style}(S,G)$.
-- $\alpha$ and $\beta$ are hyperparameters that control the relative weighting between content and style.
-
-## 4 - Solving the optimization problem
 
 Finally, let's put everything together to implement Neural Style Transfer!
 
@@ -638,49 +354,12 @@ Here's what the program will have to do:
 
 Lets go through the individual steps in detail. 
 
-#### Interactive Sessions
-
-You've previously implemented the overall cost $J(G)$. We'll now set up TensorFlow to optimize this with respect to $G$. 
-* To do so, your program has to reset the graph and use an "[Interactive Session](https://www.tensorflow.org/api_docs/python/tf/InteractiveSession)". 
-* Unlike a regular session, the "Interactive Session" installs itself as the default session to build a graph.  
-* This allows you to run variables without constantly needing to refer to the session object (calling "sess.run()"), which simplifies the code.  
-
-#### Start the interactive session.
-
-
-```python
-# Reset the graph
-tf.reset_default_graph()
-
-# Start interactive session
-sess = tf.InteractiveSession()
-```
-
-#### Content image
-Let's load, reshape, and normalize our "content" image (the Louvre museum picture):
-
-
-```python
-content_image = scipy.misc.imread("images/louvre_small.jpg")
-content_image = reshape_and_normalize_image(content_image)
-```
-
-#### Style image
-Let's load, reshape and normalize our "style" image (Claude Monet's painting):
-
-
-```python
-style_image = scipy.misc.imread("images/monet.jpg")
-style_image = reshape_and_normalize_image(style_image)
-```
-
 #### Generated image correlated with content image
 Now, we initialize the "generated" image as a noisy image created from the content_image.
 
 * The generated image is slightly correlated with the content image.
 * By initializing the pixels of the generated image to be mostly noise but slightly correlated with the content image, this will help the content of the "generated" image more rapidly match the content of the "content" image. 
-* Feel free to look in `nst_utils.py` to see the details of `generate_noise_image(...)`; to do so, click "File-->Open..." at the upper-left corner of this Jupyter notebook.
-
+*
 
 ```python
 generated_image = generate_noise_image(content_image)
@@ -708,7 +387,6 @@ To get the program to compute the content cost, we will now assign `a_C` and `a_
 3. Set a_G to be the tensor giving the hidden layer activation for the same layer. 
 4. Compute the content cost using a_C and a_G.
 
-**Note**: At this point, a_G is a tensor and hasn't been evaluated. It will be evaluated and updated at each iteration when we run the Tensorflow graph in model_nn() below.
 
 
 ```python
@@ -741,7 +419,9 @@ sess.run(model['input'].assign(style_image))
 J_style = compute_style_cost(model, STYLE_LAYERS)
 ```
 
-### Exercise: total cost
+
+
+
 * Now that you have J_content and J_style, compute the total cost J by calling `total_cost()`. 
 * Use `alpha = 10` and `beta = 40`.
 
@@ -767,23 +447,12 @@ optimizer = tf.train.AdamOptimizer(2.0)
 train_step = optimizer.minimize(J)
 ```
 
-### Exercise: implement the model
 
 * Implement the model_nn() function.  
 * The function **initializes** the variables of the tensorflow graph, 
 * **assigns** the input image (initial generated image) as the input of the VGG19 model 
 * and **runs** the `train_step` tensor (it was created in the code above this function) for a large number of steps.
 
-#### Hints
-* To initialize global variables, use this: 
-```Python
-sess.run(tf.global_variables_initializer())
-```
-* Run `sess.run()` to evaluate a variable.
-* [assign](https://www.tensorflow.org/versions/r1.14/api_docs/python/tf/assign) can be used like this:
-```python
-model["input"].assign(image)
-```
 
 
 
@@ -830,7 +499,8 @@ def model_nn(sess, input_image, num_iterations = 200):
 
 ```
 
-Run the following cell to generate an artistic image. It should take about 3min on CPU for every 20 iterations but you start observing attractive results after ≈140 iterations. Neural Style Transfer is generally trained using GPUs.
+Run the following cell to generate an artistic image. 
+
 
 
 ```python
@@ -843,29 +513,12 @@ model_nn(sess, generated_image)
     style cost = 1.26257e+08
 
 
-**Expected Output**:
 
-<table>
-    <tr>
-        <td>
-            **Iteration 0 : **
-        </td>
-        <td>
-           total cost = 5.05035e+09 <br>
-           content cost = 7877.67 <br>
-           style cost = 1.26257e+08
-        </td>
-    </tr>
-
-</table>
-
-You're done! After running this, in the upper bar of the notebook click on "File" and then "Open". Go to the "/output" directory to see all the saved images. Open "generated_image" to see the generated image! :)
 
 You should see something the image presented below on the right:
 
 <img src="images/louvre_generated.png" style="width:800px;height:300px;">
 
-We didn't want you to wait too long to see an initial result, and so had set the hyperparameters accordingly. To get the best looking results, running the optimization algorithm longer (and perhaps with a smaller learning rate) might work better. After completing and submitting this assignment, we encourage you to come back and play more with this notebook, and see if you can generate even better looking images. 
 
 Here are few other examples:
 
@@ -878,63 +531,10 @@ Here are few other examples:
 - A scientific study of a turbulent fluid with the style of a abstract blue fluid painting.
 <img src="images/circle_abstract.png" style="width:750px;height:300px;">
 
-## 5 - Test with your own image (Optional/Ungraded)
-
-Finally, you can also rerun the algorithm on your own images! 
-
-To do so, go back to part 4 and change the content image and style image with your own pictures. In detail, here's what you should do:
-
-1. Click on "File -> Open" in the upper tab of the notebook
-2. Go to "/images" and upload your images (requirement: (WIDTH = 300, HEIGHT = 225)), rename them "my_content.png" and "my_style.png" for example.
-3. Change the code in part (3.4) from :
-```python
-content_image = scipy.misc.imread("images/louvre.jpg")
-style_image = scipy.misc.imread("images/claude-monet.jpg")
-```
-to:
-```python
-content_image = scipy.misc.imread("images/my_content.jpg")
-style_image = scipy.misc.imread("images/my_style.jpg")
-```
-4. Rerun the cells (you may need to restart the Kernel in the upper tab of the notebook).
-
-You can share your generated images with us on social media with the hashtag #deeplearniNgAI or by direct tagging!
-
-You can also tune your hyperparameters: 
-- Which layers are responsible for representing the style? STYLE_LAYERS
-- How many iterations do you want to run the algorithm? num_iterations
-- What is the relative weighting between content and style? alpha/beta
-
-## 6 - Conclusion
-
-Great job on completing this assignment! You are now able to use Neural Style Transfer to generate artistic images. This is also your first time building a model in which the optimization algorithm updates the pixel values rather than the neural network's parameters. Deep learning has many different types of models and this is only one of them! 
-
-## What you should remember
-- Neural Style Transfer is an algorithm that given a content image C and a style image S can generate an artistic image
-- It uses representations (hidden layer activations) based on a pretrained ConvNet. 
-- The content cost function is computed using one hidden layer's activations.
-- The style cost function for one layer is computed using the Gram matrix of that layer's activations. The overall style cost function is obtained using several hidden layers.
-- Optimizing the total cost function results in synthesizing new images. 
 
 
 
 
-# Congratulations on finishing the course!
-This was the final programming exercise of this course. Congratulations--you've finished all the programming exercises of this course on Convolutional Networks! We hope to also see you in Course 5, on Sequence models! 
-
-
-### References:
-
-The Neural Style Transfer algorithm was due to Gatys et al. (2015). Harish Narayanan and Github user "log0" also have highly readable write-ups from which we drew inspiration. The pre-trained network used in this implementation is a VGG network, which is due to Simonyan and Zisserman (2015). Pre-trained weights were from the work of the MathConvNet team. 
-
-- Leon A. Gatys, Alexander S. Ecker, Matthias Bethge, (2015). [A Neural Algorithm of Artistic Style](https://arxiv.org/abs/1508.06576) 
-- Harish Narayanan, [Convolutional neural networks for artistic style transfer.](https://harishnarayanan.org/writing/artistic-style-transfer/)
-- Log0, [TensorFlow Implementation of "A Neural Algorithm of Artistic Style".](http://www.chioka.in/tensorflow-implementation-neural-algorithm-of-artistic-style)
-- Karen Simonyan and Andrew Zisserman (2015). [Very deep convolutional networks for large-scale image recognition](https://arxiv.org/pdf/1409.1556.pdf)
-- [MatConvNet.](http://www.vlfeat.org/matconvnet/pretrained/)
 
 
 
-```python
-
-```

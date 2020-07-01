@@ -13,7 +13,7 @@ This algorithm was created by [Gatys et al. (2015).](https://arxiv.org/abs/1508.
 - Generate novel artistic images using your algorithm 
 
 
-Neural Style Transfer (NST) is one of the most fun techniques in deep learning. As seen below, it merges two images, namely: a **"content" image (C) and a "style" image (S), to create a "generated" image (G**). 
+As seen below, it merges two images, namely: a **"content" image (C) and a "style" image (S), to create a "generated" image (G**). 
 
 The generated image G combines the "content" of the image C with the "style" of image S. 
 
@@ -23,9 +23,8 @@ In this example, I am going to generate an image of the Louvre museum in Paris (
 
 Neural Style Transfer (NST) uses a previously trained convolutional network, and builds on top of that. The idea of using a network trained on a different task and applying it to a new task is called transfer learning. 
 
-Following the [original NST paper](https://arxiv.org/abs/1508.06576), we will use the VGG network. Specifically, we'll use VGG-19, a 19-layer version of the VGG network. This model has already been trained on the very large ImageNet database, and thus has learned to recognize a variety of low level features (at the shallower layers) and high level features (at the deeper layers). 
 
-To run an image through this network, you just have to feed the image to the model. 
+We will use the VGG network. Specifically, we'll use VGG-19, a 19-layer version of the VGG network. This model has already been trained on the very large ImageNet database, and thus has learned to recognize a variety of low level features (at the shallower layers) and high level features (at the deeper layers). 
 
 
 We will build the Neural Style Transfer (NST) algorithm in three steps:
@@ -70,25 +69,6 @@ $$J_{content}(C,G) =  \frac{1}{4 \times n_H \times n_W \times n_C}\sum _{ \text{
 
 <img src="images/NST_LOSS.png" style="width:800px;height:400px;">
 
-
-**Instructions**: The 3 steps to implement this function are:
-1. Retrieve dimensions from `a_G`: 
-    - To retrieve dimensions from a tensor `X`, use: `X.get_shape().as_list()`
-2. Unroll `a_C` and `a_G` as explained in the picture above
-    - You'll likey want to use these functions: [tf.transpose](https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/transpose) and [tf.reshape](https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/reshape).
-3. Compute the content cost:
-    - You'll likely want to use these functions: [tf.reduce_sum](https://www.tensorflow.org/api_docs/python/tf/reduce_sum), [tf.square](https://www.tensorflow.org/api_docs/python/tf/square) and [tf.subtract](https://www.tensorflow.org/api_docs/python/tf/subtract).
-    
-    
-#### Additional Hints for "Unrolling"
-* To unroll the tensor, we want the shape to change from $(m,n_H,n_W,n_C)$ to $(m, n_H \times n_W, n_C)$.
-* `tf.reshape(tensor, shape)` takes a list of integers that represent the desired output shape.
-* For the `shape` parameter, a `-1` tells the function to choose the correct dimension size so that the output tensor still contains all the values of the original tensor.
-* So tf.reshape(a_C, shape=[m, n_H * n_W, n_C]) gives the same result as tf.reshape(a_C, shape=[m, -1, n_C]).
-* If you prefer to re-order the dimensions, you can use `tf.transpose(tensor, perm)`, where `perm` is a list of integers containing the original index of the dimensions. 
-* For example, `tf.transpose(a_C, perm=[0,3,1,2])` changes the dimensions from $(m, n_H, n_W, n_C)$ to $(m, n_C, n_H, n_W)$.
-* There is more than one way to unroll the tensors.
-* Notice that it's not necessary to use tf.transpose to 'unroll' the tensors in this case but this is a useful function to practice and understand for other situations that you'll encounter.
 
 
 
@@ -213,7 +193,7 @@ with tf.Session() as test:
      [ -2.09668207  19.56387138  20.6864624 ]]
 
 
-### 3.2.2 - Style cost
+### - Style cost
 
 Your goal will be to minimize the distance between the Gram matrix of the "style" image S and the gram matrix of the "generated" image G. 
 * For now, we are using only a single hidden layer $a^{[l]}$.  
@@ -234,8 +214,6 @@ For each layer:
 * Compute the "style cost" for the current layer
 * Add the weighted style cost to the overall style cost (J_style)
 
-Once you're done with the loop:  
-* Return the overall style cost.
 
 
 ```python
@@ -371,7 +349,7 @@ imshow(generated_image[0]);
 
 
 #### Load pre-trained VGG19 model
-Next, as explained in part (2), let's load the VGG19 model.
+
 
 
 ```python
@@ -433,10 +411,6 @@ J = total_cost(J_content, J_style, alpha=10, beta=40)
 ```
 
 ### Optimizer
-
-* Use the Adam optimizer to minimize the total cost `J`.
-* Use a learning rate of 2.0.  
-* [Adam Optimizer documentation](https://www.tensorflow.org/api_docs/python/tf/train/AdamOptimizer)
 
 
 ```python

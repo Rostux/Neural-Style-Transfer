@@ -1,6 +1,8 @@
 
 # Deep Learning & Art: Neural Style Transfer
 
+This project was made as a programming assignment in the deeplearning.ai specialization at coursera.org .
+
 - Neural Style Transfer is an algorithm that given a content image C and a style image S can generate an artistic image
 - It uses representations (hidden layer activations) based on a pretrained ConvNet. 
 - The content cost function is computed using one hidden layer's activations.
